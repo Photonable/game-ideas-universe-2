@@ -2,13 +2,13 @@ import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 import { stripe } from '@/lib/stripe'
-import { adminDb } from '@/lib/firebase-admin'
+import { getAdminDb } from '@/lib/firebase-admin'
 
-// This is the core logic that handles the incoming webhook event
 async function handleStripeEvent(req: Request) {
   console.log('Stripe webhook handler invoked.');
 
-  // FIXED: Get the signature from the request headers directly.
+  const adminDb = getAdminDb();
+
   const signature = req.headers.get('stripe-signature') as string
   
   const reqBuffer = await req.text();
@@ -29,7 +29,6 @@ async function handleStripeEvent(req: Request) {
     )
   }
 
-  // Handle the specific event type
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
@@ -43,7 +42,6 @@ async function handleStripeEvent(req: Request) {
 
       const { userId } = session.metadata
       
-      // Update the user's document in Firestore
       const userRef = adminDb.collection('users').doc(userId)
       await userRef.update({
         stripeCustomerId: customerId,
@@ -61,17 +59,10 @@ async function handleStripeEvent(req: Request) {
   return NextResponse.json({ received: true })
 }
 
-// Handle the webhook event from a GET request
 export async function GET(req: Request) {
   return handleStripeEvent(req);
 }
 
-// Reject POST requests
-export async function POST() {
-    return new NextResponse('Method Not Allowed', {
-        status: 405,
-        headers: {
-            'Allow': 'GET',
-        },
-    });
+export async function POST(req: Request) {
+    return handleStripeEvent(req);
 }
