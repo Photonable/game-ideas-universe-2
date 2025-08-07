@@ -9,8 +9,7 @@
     "lint": "bunx tsc --noEmit && next lint",
     "format": "bunx biome format --write",
     "genkit:dev": "genkit start -- bun run dev",
-    "genkit:monitor": "genkit start --ui",
-    "postinstall": "npm install @netlify/plugin-nextjs"
+    "genkit:monitor": "genkit start --ui"
   },
   "dependencies": {
     "@genkit-ai/ai": "^1.15.5",
