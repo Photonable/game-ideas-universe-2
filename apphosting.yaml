@@ -32,7 +32,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: FIREBASE_PRIVATE_KEY
-    secret: FIREBASE_PRIVATE_KEY
+    secret: projects/game-idea-universe/secrets/FIREBASE_PRIVATE_KEY/versions/2
     availability:
       - BUILD
       - RUNTIME
