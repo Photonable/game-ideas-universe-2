@@ -1,7 +1,11 @@
-# This file configures the deployment of your Next.js app to Firebase App Hosting.
-
-# Specifies the version of the App Hosting configuration schema.
-version: 1
+# Specifies the version of the App Hosting YAML schema.
+# The version of the schema is important for ensuring that the configuration
+# is parsed and interpreted correctly.
+# To learn more about the schema, visit
+# https://firebase.google.com/docs/app-hosting/reference/yaml-schema
+#
+# Required
+schemaVersion: v1alpha1
 
 # Specifies the commands to build and run your Next.js application.
 run:
@@ -19,9 +23,21 @@ env:
   # These variables will be populated from secrets stored in Google Secret Manager.
   - variable: FIREBASE_PROJECT_ID
     secret: FIREBASE_PROJECT_ID
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: FIREBASE_CLIENT_EMAIL
     secret: FIREBASE_CLIENT_EMAIL
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: FIREBASE_PRIVATE_KEY
     secret: FIREBASE_PRIVATE_KEY
+    availability:
+      - BUILD
+      - RUNTIME
   - variable: STRIPE_WEBHOOK_SECRET
     secret: STRIPE_WEBHOOK_SECRET
+    availability:
+      - BUILD
+      - RUNTIME
