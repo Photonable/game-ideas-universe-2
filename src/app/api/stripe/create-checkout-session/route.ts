@@ -99,14 +99,19 @@ export async function POST(req: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${origin}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        success__url: `${origin}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}?payment=cancelled`,
         customer_email: userEmail,
         metadata: {
           userId,
           planType,
-          generations: plan.generations.toString(),
         },
+        subscription_data: {
+          metadata: {
+            userId,
+            planType,
+          }
+        }
       })
 
       return NextResponse.json({
