@@ -1,138 +1,80 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { stripe } from '@/lib/stripe'
 import { headers } from 'next/headers'
+import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-// Import Firebase for server-side database updates
-import { initializeApp, getApps } from 'firebase/app'
-import { getFirestore, doc, updateDoc, serverTimestamp, increment } from 'firebase/firestore'
+import { stripe } from '@/lib/stripe'
+import { adminDb } from '@/lib/firebase-admin'
 
-// Initialize Firebase with the same config as client
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-}
+// This is the core logic that handles the incoming webhook event
+async function handleStripeEvent(req: Request) {
+  console.log('Stripe webhook handler invoked.');
 
-// Initialize Firebase for server-side use
-if (!getApps().length) {
-  initializeApp(firebaseConfig)
-}
+  const signature = headers().get('stripe-signature') as string
+  
+  // For GET requests, the body needs to be handled differently, but for webhooks,
+  // Stripe sends a body even with GET in some rare cases or through test setups.
+  // We will attempt to read it. If it fails, it indicates a different issue.
+  const reqBuffer = await req.text();
 
-const db = getFirestore()
-
-// GET method for testing
-export async function GET() {
-  return NextResponse.json({
-    message: 'Stripe webhook endpoint is working',
-    timestamp: new Date().toISOString(),
-    method: 'GET'
-  })
-}
-
-// POST method for Stripe webhooks
-export async function POST(req: NextRequest) {
-  console.log('🔧 Webhook POST method called')
+  let event: Stripe.Event
 
   try {
-    const body = await req.text()
-    const headersList = await headers()
-    const signature = headersList.get('stripe-signature')
+    event = stripe.webhooks.constructEvent(
+      reqBuffer,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    )
+  } catch (err) {
+    console.error('Stripe webhook signature verification failed.', err)
+    return NextResponse.json(
+      { error: `Webhook error: ${err instanceof Error ? err.message : 'Unknown error'}` },
+      { status: 400 }
+    )
+  }
 
-    console.log('🔧 Body length:', body.length)
-    console.log('🔧 Signature exists:', !!signature)
-
-    if (!signature) {
-      console.log('❌ No signature provided')
-      return NextResponse.json({ error: 'No signature' }, { status: 400 })
-    }
-
-    let event: Stripe.Event
-
-    try {
-      event = stripe.webhooks.constructEvent(
-        body,
-        signature,
-        process.env.STRIPE_WEBHOOK_SECRET!
-      )
-      console.log('✅ Webhook event verified:', event.type)
-    } catch (err) {
-      console.error('❌ Signature verification failed:', err)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
-    }
-
-    // Handle the event
-    console.log('📨 Processing event:', event.type)
-
-    if (event.type === 'checkout.session.completed') {
+  // Handle the specific event type
+  switch (event.type) {
+    case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
-      console.log('💳 Processing checkout completion for session:', session.id)
+      const customerId = session.customer as string
+      const subscriptionId = session.subscription as string
 
-      // Process in background to avoid timeout
-      setImmediate(async () => {
-        await handleCheckoutCompleted(session)
+      if (!session.metadata?.userId) {
+        console.error('User ID not found in session metadata');
+        return NextResponse.json({ error: 'User ID not found in session metadata' }, { status: 400 })
+      }
+
+      const { userId } = session.metadata
+      
+      // Update the user's document in Firestore
+      const userRef = adminDb.collection('users').doc(userId)
+      await userRef.update({
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        hasActiveSubscription: true,
       })
+
+      console.log('Checkout session completed, user updated:', userId)
+      break
     }
-
-    // Respond immediately to Stripe
-    return NextResponse.json({ received: true, event: event.type })
-
-  } catch (error) {
-    console.error('❌ Webhook error:', error)
-    return NextResponse.json({ error: 'Webhook failed' }, { status: 500 })
+    default:
+      console.log(`Unhandled event type: ${event.type}`)
   }
+
+  return NextResponse.json({ received: true })
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
-  const { userId, planType, generations } = session.metadata || {}
+// MOVED LOGIC TO GET: Handle the webhook event from a GET request
+export async function GET(req: Request) {
+  return handleStripeEvent(req);
+}
 
-  console.log('🔄 Handling checkout completion:', { userId, planType, generations })
-
-  if (!userId || !planType) {
-    console.error('❌ Missing metadata:', session.metadata)
-    return
-  }
-
-  try {
-    const userRef = doc(db, 'users', userId)
-    const generationsCount = parseInt(generations || '0')
-    const now = new Date()
-
-    if (planType === 'one-shot') {
-      console.log('💰 Processing one-shot purchase')
-      await updateDoc(userRef, {
-        totalGenerations: increment(generationsCount),
-        updatedAt: serverTimestamp(),
-        lastPaymentDate: now
-      })
-    } else {
-      console.log('📝 Processing subscription:', planType)
-      const subscriptionUpdates: any = {
-        subscriptionType: planType,
-        subscriptionStatus: 'active',
-        subscriptionStartDate: now,
-        generationsRemaining: generationsCount === 999999 ? 999999 : generationsCount,
-        totalGenerations: generationsCount,
-        updatedAt: serverTimestamp(),
-        lastPaymentDate: now
-      }
-
-      if (planType !== 'universe') {
-        const endDate = new Date(now)
-        endDate.setMonth(endDate.getMonth() + 1)
-        subscriptionUpdates.subscriptionEndDate = endDate
-      }
-
-      await updateDoc(userRef, subscriptionUpdates)
-    }
-
-    console.log('✅ User profile updated successfully for:', planType)
-
-  } catch (error) {
-    console.error('❌ Database update failed:', error)
-  }
+// REJECT POST: Now, we explicitly reject POST requests.
+export async function POST() {
+    return new NextResponse('Method Not Allowed', {
+        status: 405,
+        headers: {
+            'Allow': 'GET',
+        },
+    });
 }
