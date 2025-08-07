@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Pass the FIREBASE_WEBAPP_CONFIG to the client
+  // Pass environment variables to the client
   env: {
     FIREBASE_WEBAPP_CONFIG: process.env.FIREBASE_WEBAPP_CONFIG,
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
   },
   allowedDevOrigins: ["*.preview.same-app.com"],
   images: {
