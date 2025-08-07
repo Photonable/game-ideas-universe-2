@@ -37,7 +37,7 @@ env:
       - BUILD
       - RUNTIME
   - variable: STRIPE_SECRET_KEY
-    secret: projects/game-idea-universe/secrets/STRIPE_SECRET_KEY/versions/1
+    secret: STRIPE_SECRET_KEY
     availability:
       - BUILD
       - RUNTIME
