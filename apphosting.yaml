@@ -17,12 +17,11 @@ resources:
 # It is a best practice to load sensitive data from Google Secret Manager.
 env:
   # These variables will be populated from secrets stored in Google Secret Manager.
-  # The '@' syntax tells App Hosting to fetch the latest version of the secret.
   - variable: FIREBASE_PROJECT_ID
-    secret: FIREBASE_PROJECT_ID@latest
+    secret: FIREBASE_PROJECT_ID
   - variable: FIREBASE_CLIENT_EMAIL
-    secret: FIREBASE_CLIENT_EMAIL@latest
+    secret: FIREBASE_CLIENT_EMAIL
   - variable: FIREBASE_PRIVATE_KEY
-    secret: FIREBASE_PRIVATE_KEY@latest
+    secret: FIREBASE_PRIVATE_KEY
   - variable: STRIPE_WEBHOOK_SECRET
-    secret: STRIPE_WEBHOOK_SECRET@latest
+    secret: STRIPE_WEBHOOK_SECRET
