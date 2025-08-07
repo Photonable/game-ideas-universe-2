@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Remove static export since we need server-side API routes for AI generation
-  // output: 'export',
-  // distDir: 'out',
+  // Pass the FIREBASE_WEBAPP_CONFIG to the client
+  env: {
+    FIREBASE_WEBAPP_CONFIG: process.env.FIREBASE_WEBAPP_CONFIG,
+  },
   allowedDevOrigins: ["*.preview.same-app.com"],
   images: {
     unoptimized: true,

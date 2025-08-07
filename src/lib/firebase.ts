@@ -3,63 +3,57 @@ import { getAuth, GoogleAuthProvider, GithubAuthProvider } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
 import { getAnalytics } from 'firebase/analytics'
 
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'demo-key',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'demo.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'demo-project',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'demo.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '123456789',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || 'demo-app-id',
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-DEMO'
+let firebaseConfig: any;
+
+// In Firebase App Hosting, the config is provided as a JSON string.
+// We parse it. For local dev, we fall back to NEXT_PUBLIC_ vars.
+try {
+  if (process.env.FIREBASE_WEBAPP_CONFIG) {
+    firebaseConfig = JSON.parse(process.env.FIREBASE_WEBAPP_CONFIG);
+    console.log('Firebase configured using FIREBASE_WEBAPP_CONFIG.');
+  } else {
+    // Fallback for local development
+    console.log('Using NEXT_PUBLIC_ variables for Firebase config.');
+    firebaseConfig = {
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+      measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    };
+  }
+} catch(e) {
+  console.error("Could not parse Firebase config.", e);
 }
 
-// Check if Firebase is properly configured
+
+// A simple check to see if the config is valid
 export const isFirebaseConfigured = () => {
-  const configured = process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-         process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'demo-key'
+    const isConfigured = firebaseConfig && firebaseConfig.apiKey;
+    if (!isConfigured) {
+        console.warn('Firebase not configured. Please check your environment variables.');
+    }
+    return isConfigured;
+};
 
-  console.log('Firebase configured:', configured)
-  console.log('API Key exists:', !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY)
-  console.log('API Key value:', process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.substring(0, 10) + '...')
-
-  return configured
-}
 
 // Initialize Firebase app (avoid duplicate initialization)
-let app
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp()
-  console.log('Firebase app initialized successfully')
-} catch (error) {
-  console.error('Firebase initialization error:', error)
-  throw error
-}
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firebase services
-const auth = getAuth(app)
-const db = getFirestore(app, 'userdb')  // Specify the userdb database
+const auth = getAuth(app);
+const db = getFirestore(app, 'userdb'); // Specify the userdb database
+const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 
-// Initialize Analytics (only on client side)
-const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null
+// Auth providers
+const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
 
-// Auth providers - initialize only if Firebase is configured
-let googleProvider: GoogleAuthProvider | null = null
-let githubProvider: GithubAuthProvider | null = null
+const githubProvider = new GithubAuthProvider();
+githubProvider.addScope('user:email');
 
-if (isFirebaseConfigured()) {
-  googleProvider = new GoogleAuthProvider()
-  githubProvider = new GithubAuthProvider()
-
-  // Configure providers
-  googleProvider.addScope('profile')
-  googleProvider.addScope('email')
-
-  githubProvider.addScope('user:email')
-
-  console.log('Auth providers initialized')
-} else {
-  console.warn('Firebase not properly configured - social auth will not work')
-}
-
-export { auth, db, analytics, googleProvider, githubProvider }
-export default app
+export { auth, db, analytics, googleProvider, githubProvider };
+export default app;
