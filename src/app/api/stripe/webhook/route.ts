@@ -52,6 +52,36 @@ async function handleStripeEvent(req: Request) {
       console.log('Checkout session completed, user updated:', userId)
       break
     }
+    case 'customer.subscription.created': {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userRef = adminDb.collection('users').doc(subscription.metadata.userId);
+      await userRef.update({
+        hasActiveSubscription: true,
+        stripeSubscriptionId: subscription.id,
+        subscriptionStatus: subscription.status,
+      });
+      console.log('Subscription created, user updated:', subscription.metadata.userId);
+      break;
+    }
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userRef = adminDb.collection('users').doc(subscription.metadata.userId);
+      await userRef.update({
+        subscriptionStatus: subscription.status,
+      });
+      console.log('Subscription updated, user status updated:', subscription.metadata.userId);
+      break;
+    }
+    case 'customer.subscription.deleted': {
+      const subscription = event.data.object as Stripe.Subscription;
+      const userRef = adminDb.collection('users').doc(subscription.metadata.userId);
+      await userRef.update({
+        hasActiveSubscription: false,
+        subscriptionStatus: subscription.status,
+      });
+      console.log('Subscription deleted, user updated:', subscription.metadata.userId);
+      break;
+    }
     default:
       console.log(`Unhandled event type: ${event.type}`)
   }
