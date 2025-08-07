@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
@@ -9,11 +8,9 @@ import { adminDb } from '@/lib/firebase-admin'
 async function handleStripeEvent(req: Request) {
   console.log('Stripe webhook handler invoked.');
 
-  const signature = headers().get('stripe-signature') as string
+  // FIXED: Get the signature from the request headers directly.
+  const signature = req.headers.get('stripe-signature') as string
   
-  // For GET requests, the body needs to be handled differently, but for webhooks,
-  // Stripe sends a body even with GET in some rare cases or through test setups.
-  // We will attempt to read it. If it fails, it indicates a different issue.
   const reqBuffer = await req.text();
 
   let event: Stripe.Event
@@ -64,12 +61,12 @@ async function handleStripeEvent(req: Request) {
   return NextResponse.json({ received: true })
 }
 
-// MOVED LOGIC TO GET: Handle the webhook event from a GET request
+// Handle the webhook event from a GET request
 export async function GET(req: Request) {
   return handleStripeEvent(req);
 }
 
-// REJECT POST: Now, we explicitly reject POST requests.
+// Reject POST requests
 export async function POST() {
     return new NextResponse('Method Not Allowed', {
         status: 405,
