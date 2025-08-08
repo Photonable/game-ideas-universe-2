@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
             quantity: 1,
           },
         ],
-        success__url: `${origin}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${origin}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}?payment=cancelled`,
         customer_email: userEmail,
         metadata: {
